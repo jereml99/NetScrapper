@@ -37,13 +37,14 @@ public class MonitorLoop
 
     private async ValueTask MonitorAsync()
     {
+        var i = 0;
         while (!_cancellationToken.IsCancellationRequested)
         {
             var keyStroke = Console.ReadKey();
-            var pages =_configuration.GetSection("pages").AsEnumerable().ToList();
+            var pages = _configuration.GetSection("pages").Get<List<ConfigPage>>();
             if (keyStroke.Key == ConsoleKey.W)
             {
-                await _taskQueue.QueueBackgroundWorkItemAsync(BuildTask("https://pg.edu.pl/"));
+                await _taskQueue.QueueBackgroundWorkItemAsync(BuildTask(pages[(i++)%2].url));
             }
         }
     }
