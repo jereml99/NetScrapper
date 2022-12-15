@@ -15,13 +15,21 @@ public class StreamString
 
     public string ReadString()
     {
-        int len;
-        len = ioStream.ReadByte() * 256;
-        len += ioStream.ReadByte();
-        var inBuffer = new byte[len];
-        ioStream.Read(inBuffer, 0, len);
+        try
+        {
+            int len;
+            len = ioStream.ReadByte() * 256;
+            len += ioStream.ReadByte();
+            var inBuffer = new byte[len];
+            ioStream.Read(inBuffer, 0, len);
 
-        return streamEncoding.GetString(inBuffer);
+            return streamEncoding.GetString(inBuffer);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+            throw;
+        }
     }
 
     public int WriteString(string outString)

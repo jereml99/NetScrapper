@@ -24,5 +24,14 @@ namespace WpfApp1
         {
             InitializeComponent();
         }
+        
+        private void Window_Closed(object sender, EventArgs e)
+        {
+            // Dispose of the disposable class using the using statement
+            using (MainModelView)
+            {
+                // Use the disposable class here
+            }
+        }
     }
 }

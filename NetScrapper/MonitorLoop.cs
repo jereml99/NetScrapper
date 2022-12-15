@@ -72,9 +72,15 @@ public class MonitorLoop
             var streamString = new StreamString(_pipe);
             while (_pipe.IsConnected)
             {
-                var url = streamString.ReadString();
-                _logger.LogInformation("Messages received: {0}", url);
-                await _taskQueue.QueueBackgroundWorkItemAsync(BuildTask(url));
+                try
+                {                
+                    var url = streamString.ReadString();
+                    _logger.LogInformation("Messages received: {0}", url);
+                    await _taskQueue.QueueBackgroundWorkItemAsync(BuildTask(url));
+                }
+                catch
+                {
+                }
             }
         }
     }

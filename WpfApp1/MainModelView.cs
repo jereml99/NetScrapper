@@ -16,7 +16,7 @@ using JsonConverter = Newtonsoft.Json.JsonConverter;
 
 namespace WpfApp1;
 
-public class MainModelView :  INotifyPropertyChanged
+public class MainModelView :  INotifyPropertyChanged, IDisposable
 {
     private NamedPipeClientStream _pipe;
     private int totalPages;
@@ -58,12 +58,12 @@ public class MainModelView :  INotifyPropertyChanged
 
             var streamString = new StreamString(_pipe);
             
-            while (true)
+            while (_pipe.IsConnected)
             {
-                var message = streamString.ReadString();
-                Console.WriteLine("Messages received: {0}", message);
                 try
                 {
+                    var message = streamString.ReadString();
+                    Console.WriteLine("Messages received: {0}", message);
                     var serviceStatus = JsonConvert.DeserializeObject<ServiceStatus>(message);
                     if (serviceStatus != null)
                     {
@@ -98,5 +98,10 @@ public class MainModelView :  INotifyPropertyChanged
     protected void OnPropertyChanged(string name)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+    }
+
+    public void Dispose()
+    {
+        _pipe.Dispose();
     }
 }
