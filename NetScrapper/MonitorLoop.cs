@@ -1,8 +1,10 @@
 ﻿using System.IO.Compression;
 using System.IO.Hashing;
+using System.IO.Pipes;
 using System.Net;
 using System.Text;
 using System.Security.Cryptography;
+using DefaultNamespace;
 
 
 namespace NetScrapper;
@@ -13,7 +15,9 @@ public class MonitorLoop
     private readonly ILogger<MonitorLoop> _logger;
     private readonly IConfiguration _configuration;
     private readonly CancellationToken _cancellationToken;
+    private NamedPipeServerStream _pipe;
 
+    private const string pipeName = "scrapperComm";
     public MonitorLoop(
         IBackgroundTaskQueue taskQueue,
         ILogger<MonitorLoop> logger,
@@ -37,22 +41,47 @@ public class MonitorLoop
 
     private async ValueTask MonitorAsync()
     {
-        var i = 0;
-        while (!_cancellationToken.IsCancellationRequested)
+        var pages = _configuration.GetSection("pages").Get<List<ConfigPage>>();
+        foreach (var configPage in pages)
         {
-            var keyStroke = Console.ReadKey();
-            var pages = _configuration.GetSection("pages").Get<List<ConfigPage>>();
-            if (keyStroke.Key == ConsoleKey.W)
+            Task.Run((async () =>
+                {
+                    var timer = new PeriodicTimer(TimeSpan.FromSeconds(configPage.interval));
+
+                    while (await timer.WaitForNextTickAsync())
+                    {
+                        await _taskQueue.QueueBackgroundWorkItemAsync(BuildTask(configPage.url));
+                    }
+                })
+            );
+        }
+
+        _pipe = new NamedPipeServerStream(
+            pipeName,
+            PipeDirection.InOut,
+            1,
+            PipeTransmissionMode.Message,
+            PipeOptions.Asynchronous);
+        while (true)
+        {
+            await _pipe.WaitForConnectionAsync(_cancellationToken);
+
+            var streamString = new StreamString(_pipe);
+            while (_pipe.IsConnected)
             {
-                await _taskQueue.QueueBackgroundWorkItemAsync(BuildTask(pages[(i++)%2].url));
+                var message = streamString.ReadString();
+                _logger.LogInformation("Messages received: {}", message);
+                await _taskQueue.QueueBackgroundWorkItemAsync(BuildTask(pages[0].url));
             }
         }
     }
+
 
     private Func<CancellationToken, ValueTask> BuildTask(string url)
     {
         return async token =>
         {
+            _logger.LogCritical("Page processing started: {0}", url);
             var downloadPage = DownloadPage(url);
             downloadPage.ContinueWith(async task => await CalcCrc(task.Result), token);
             var compress = downloadPage.ContinueWith(task => Compress(task.Result)).Unwrap();
@@ -105,7 +134,7 @@ public class MonitorLoop
         var crc = new Crc32();
         var hash = crc.GetHashAndReset(html);
         var hashString = hash.ToString();
-        _logger.LogInformation(hashString);
+        _logger.LogDebug("Calculated CRC: {0}",hashString);
     }
 
     private async Task<byte[]> DownloadPage(string url)
@@ -119,7 +148,7 @@ public class MonitorLoop
                 
                 html = await client.DownloadDataTaskAsync(url);
                 
-                _logger.LogInformation(html.Length.ToString());
+                _logger.LogInformation("File uploaded, bytes: {0}",html.Length.ToString());
             }
         }
         catch (OperationCanceledException)
