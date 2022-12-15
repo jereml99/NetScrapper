@@ -2,24 +2,51 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.IO.Pipes;
 using System.Linq;
+using System.Net.Http.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using System.Windows.Threading;
 using DefaultNamespace;
+using Newtonsoft.Json;
+using JsonConverter = Newtonsoft.Json.JsonConverter;
 
 namespace WpfApp1;
 
 public class MainModelView :  INotifyPropertyChanged
 {
     private NamedPipeClientStream _pipe;
+    private int totalPages;
+    private string totalTransfer = "0 B";
     private const string pipeName = "scrapperComm";
+    
+    public int TotalPages
+    {
+        get => totalPages;
+        set
+        {
+            totalPages = value;
+            OnPropertyChanged("TotalPages");
+        }
+    }
+
+    public string TotalTransfer
+    {
+        get => totalTransfer;
+        set
+        {
+            totalTransfer = value;
+            OnPropertyChanged("TotalTransfer");
+        }
+    }
     public MainModelView()
     {
         forceDownloadCommand = new RelayCommand(ForceDownload, CanForceDownload);
 
-        Task.Run( async () =>
+        Task.Run( () =>
         {
             _pipe = new NamedPipeClientStream(
                 ".",
@@ -27,14 +54,28 @@ public class MainModelView :  INotifyPropertyChanged
                 PipeDirection.InOut,
                 PipeOptions.Asynchronous);
             
-            await _pipe.ConnectAsync();
+            _pipe.Connect();
 
             var streamString = new StreamString(_pipe);
             
             while (true)
             {
                 var message = streamString.ReadString();
-                Console.WriteLine("Messages received: {}", message);
+                Console.WriteLine("Messages received: {0}", message);
+                try
+                {
+                    var serviceStatus = JsonConvert.DeserializeObject<ServiceStatus>(message);
+                    if (serviceStatus != null)
+                    {
+                        TotalPages = serviceStatus.totalPages;
+                        TotalTransfer = serviceStatus.totalTransfer.ToHumanBytes(); 
+                    }
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                }
+
             }
         });
     }
@@ -51,7 +92,8 @@ public class MainModelView :  INotifyPropertyChanged
 
     public ICommand forceDownloadCommand { get; set; }
 
-    
+
+
     public event PropertyChangedEventHandler PropertyChanged;
     protected void OnPropertyChanged(string name)
     {

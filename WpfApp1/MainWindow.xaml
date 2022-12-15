@@ -10,16 +10,26 @@
         <local:MainModelView></local:MainModelView>
     </Window.DataContext>
     <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="50"/>
-            <RowDefinition Height="100"/>
-            <RowDefinition Height="*"/>
-        </Grid.RowDefinitions>
-        <TextBox x:Name="forceDownload"></TextBox>
-        <Button Grid.Row="1" 
-                Command="{Binding forceDownloadCommand }"
-                CommandParameter="{Binding ElementName=forceDownload,Path=Text}">
-            Force Download
-        </Button>
+        <StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="5">
+                <TextBlock Text="Total pages downloaded: " />
+                <TextBlock Text="{Binding TotalPages}" FontWeight="Bold" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="5">
+                <TextBlock Text="Total transfer: " />
+                <TextBlock Text="{Binding TotalTransfer}" FontWeight="Bold" />
+            </StackPanel>
+            <StackPanel Orientation="Vertical" Margin="5">
+                <TextBox x:Name="forceDownload"></TextBox>
+                <Button
+                        Command="{Binding forceDownloadCommand }"
+                        CommandParameter="{Binding ElementName=forceDownload,Path=Text}"
+                        Padding="10" Background="LightGreen"
+                        >
+                    Force Download
+                </Button>
+            </StackPanel>
+        </StackPanel>
+
     </Grid>
 </Window>

@@ -5,6 +5,7 @@ using System.Net;
 using System.Text;
 using System.Security.Cryptography;
 using DefaultNamespace;
+using Newtonsoft.Json;
 
 
 namespace NetScrapper;
@@ -16,6 +17,7 @@ public class MonitorLoop
     private readonly IConfiguration _configuration;
     private readonly CancellationToken _cancellationToken;
     private NamedPipeServerStream _pipe;
+    private ServiceStatus status;
 
     private const string pipeName = "scrapperComm";
     public MonitorLoop(
@@ -30,6 +32,7 @@ public class MonitorLoop
         _logger = logger;
         _configuration = configuration;
         _cancellationToken = applicationLifetime.ApplicationStopping;
+        status = new ServiceStatus();
     }
 
     public void StartMonitorLoop()
@@ -70,7 +73,7 @@ public class MonitorLoop
             while (_pipe.IsConnected)
             {
                 var url = streamString.ReadString();
-                _logger.LogInformation("Messages received: {}", url);
+                _logger.LogInformation("Messages received: {0}", url);
                 await _taskQueue.QueueBackgroundWorkItemAsync(BuildTask(url));
             }
         }
@@ -84,6 +87,14 @@ public class MonitorLoop
             _logger.LogCritical("Page processing started: {0}", url);
             var downloadPage = DownloadPage(url);
             downloadPage.ContinueWith(async task => await CalcCrc(task.Result), token);
+            downloadPage.ContinueWith(async task =>
+            {
+                if (_pipe.IsConnected)
+                {
+                    var streamString = new StreamString(_pipe);
+                    streamString.WriteString(JsonConvert.SerializeObject(status, Formatting.None));
+                }
+            });
             var compress = downloadPage.ContinueWith(task => Compress(task.Result)).Unwrap();
         
             var fielname = Path.Join("files", new Uri(url).Host.Replace('.','_')+".gzip");
@@ -98,18 +109,18 @@ public class MonitorLoop
             if (!fileData.SequenceEqual(downloadPage))
             {
                 File.WriteAllBytes(filePath, downloadPage);
-                _logger.LogInformation("Change detected, updating file: {1}", filePath );
+                _logger.LogInformation("Change detected, updating file: {0}", filePath );
             }
             else
             {
-                _logger.LogInformation("Changes not detected: {1}", filePath );
+                _logger.LogInformation("Changes not detected: {0}", filePath );
             }
         }
         else
         {
             Directory.CreateDirectory(Path.GetDirectoryName(filePath) ?? string.Empty);
             File.WriteAllBytes(filePath, downloadPage);
-            _logger.LogInformation("First saving: {1}", filePath );
+            _logger.LogInformation("First saving: {0}", filePath );
         }
     }
 
@@ -134,7 +145,7 @@ public class MonitorLoop
         var crc = new Crc32();
         var hash = crc.GetHashAndReset(html);
         var hashString = hash.ToString();
-        _logger.LogDebug("Calculated CRC: {0}",hashString);
+        _logger.LogInformation("Calculated CRC: {0}",hashString);
     }
 
     private async Task<byte[]> DownloadPage(string url)
@@ -156,6 +167,9 @@ public class MonitorLoop
             // Prevent throwing if the Delay is cancelled
         }
 
+        status.totalPages++;
+        status.totalTransfer += html.Length;
+        
         return html;
     }
 }
