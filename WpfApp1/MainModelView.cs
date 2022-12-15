@@ -15,7 +15,6 @@ public class MainModelView :  INotifyPropertyChanged
 {
     private NamedPipeClientStream _pipe;
     private const string pipeName = "scrapperComm";
-
     public MainModelView()
     {
         forceDownloadCommand = new RelayCommand(ForceDownload, CanForceDownload);
@@ -42,12 +41,12 @@ public class MainModelView :  INotifyPropertyChanged
 
 
 
-    private bool CanForceDownload(object obj) => _pipe.IsConnected;
+    private bool CanForceDownload(object obj) => _pipe.IsConnected && Uri.IsWellFormedUriString(obj as string, UriKind.Absolute);
 
     private void ForceDownload(object obj)
     {
         var streamString = new StreamString(_pipe);
-        streamString.WriteString("Hello World");
+        streamString.WriteString(obj as string);
     }
 
     public ICommand forceDownloadCommand { get; set; }

@@ -10,6 +10,16 @@
         <local:MainModelView></local:MainModelView>
     </Window.DataContext>
     <Grid>
-        <Button Command="{Binding forceDownloadCommand }">Send Message</Button>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="50"/>
+            <RowDefinition Height="100"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <TextBox x:Name="forceDownload"></TextBox>
+        <Button Grid.Row="1" 
+                Command="{Binding forceDownloadCommand }"
+                CommandParameter="{Binding ElementName=forceDownload,Path=Text}">
+            Force Download
+        </Button>
     </Grid>
 </Window>
