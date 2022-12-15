@@ -13,5 +13,9 @@
         <PackageReference Include="System.IO.Hashing" Version="7.0.0" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Folder Include="files" />
+    </ItemGroup>
+
     <Import Project="..\CommunicationClasses\CommunicationClasses.projitems" Label="Shared" />
 </Project>

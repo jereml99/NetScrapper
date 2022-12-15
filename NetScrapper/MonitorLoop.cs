@@ -102,8 +102,11 @@ public class MonitorLoop
                 }
             });
             var compress = downloadPage.ContinueWith(task => Compress(task.Result)).Unwrap();
-        
-            var fielname = Path.Join("files", new Uri(url).Host.Replace('.','_')+".gzip");
+
+            var uri = new Uri(url);;
+            var pathAndQuery = uri.PathAndQuery.TrimEnd('/');
+            var fielpath = Path.Join("files", uri.Host.Replace('.','_'), pathAndQuery);
+            var fielname = fielpath + ".gzip";
             await compress.ContinueWith(task => UpdateFile(task.Result, fielname));
         };
     }
